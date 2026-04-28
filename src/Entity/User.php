@@ -9,11 +9,13 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'users')]
 #[ORM\UniqueConstraint(name: 'uniq_users_email', columns: ['email'])]
-class User
+class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     use TimestampableTrait;
 
@@ -43,23 +45,23 @@ class User
     private ?string $rememberToken = null;
 
     /** @var Collection<int, Account> */
-    #[ORM\OneToMany(mappedBy: 'user', targetEntity: Account::class)]
+    #[ORM\OneToMany(targetEntity: Account::class, mappedBy: 'user')]
     private Collection $accounts;
 
     /** @var Collection<int, JotList> */
-    #[ORM\OneToMany(mappedBy: 'owner', targetEntity: JotList::class)]
+    #[ORM\OneToMany(targetEntity: JotList::class, mappedBy: 'owner')]
     private Collection $ownedLists;
 
     /** @var Collection<int, ListUser> */
-    #[ORM\OneToMany(mappedBy: 'user', targetEntity: ListUser::class)]
+    #[ORM\OneToMany(targetEntity: ListUser::class, mappedBy: 'user')]
     private Collection $listMemberships;
 
     /** @var Collection<int, ListItem> */
-    #[ORM\OneToMany(mappedBy: 'user', targetEntity: ListItem::class)]
+    #[ORM\OneToMany(targetEntity: ListItem::class, mappedBy: 'user')]
     private Collection $createdListItems;
 
     /** @var Collection<int, ListItem> */
-    #[ORM\OneToMany(mappedBy: 'completedUser', targetEntity: ListItem::class)]
+    #[ORM\OneToMany(targetEntity: ListItem::class, mappedBy: 'completedUser')]
     private Collection $completedListItems;
 
     public function __construct()
@@ -195,5 +197,20 @@ class User
     public function getCompletedListItems(): Collection
     {
         return $this->completedListItems;
+    }
+
+    public function getUserIdentifier(): string
+    {
+        return $this->email;
+    }
+
+    /** @return list<string> */
+    public function getRoles(): array
+    {
+        return ['ROLE_USER'];
+    }
+
+    public function eraseCredentials(): void
+    {
     }
 }

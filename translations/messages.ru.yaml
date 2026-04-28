@@ -1,0 +1,10 @@
+security:
+    user_not_found: 'Пользователь с email "%email%" не найден.'
+    invalid_user_class: 'Некорректный класс пользователя "%class%".'
+    password_confirmation_error: 'Пароли не совпадают'
+    user_already_exists: 'Пользователь с таким email уже существует'
+    invalid_credentials: 'Неправильный email или пароль'
+    user_blocked: 'Пользователь заблокирован'
+    refresh_token_is_missing: 'Refresh token cookie не найдена'
+    refresh_token_is_invalid: 'Refresh token поврежден или устарел'
+    refresh_token_owner_error: 'Refresh token ошибка валидации'
