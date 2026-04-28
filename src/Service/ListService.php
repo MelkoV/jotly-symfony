@@ -7,14 +7,18 @@ namespace App\Service;
 use App\Dto\Common\SuccessData;
 use App\Dto\List\CreateListData;
 use App\Dto\List\CreateListItemData;
+use App\Dto\List\DeleteTypesData;
 use App\Dto\List\DeleteListItemData;
+use App\Dto\List\ListPublicInfoData;
 use App\Dto\List\ListData;
 use App\Dto\List\ListFilterData;
 use App\Dto\List\ListItemData;
 use App\Dto\List\ListItemMutationData;
 use App\Dto\List\ListViewData;
 use App\Dto\List\PaginatedListsData;
+use App\Dto\List\ShareData;
 use App\Dto\List\UpdateListData;
+use App\Dto\List\UpdateShareData;
 use App\Exception\ListException;
 use App\Repository\ListRepository;
 use App\Repository\UserRepository;
@@ -70,6 +74,72 @@ final readonly class ListService
         }
 
         return new SuccessData();
+    }
+
+    public function getDeleteTypes(string $email, string $listId): DeleteTypesData
+    {
+        $data = $this->listRepository->getDeleteTypes($this->requireUserId($email), $listId);
+
+        if (null === $data) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return $data;
+    }
+
+    public function leftUser(string $email, string $listId): SuccessData
+    {
+        $left = $this->listRepository->leftUser($this->requireUserId($email), $listId);
+
+        if (!$left) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return new SuccessData();
+    }
+
+    public function getShareData(string $email, string $listId): ShareData
+    {
+        $data = $this->listRepository->getShareData($this->requireUserId($email), $listId);
+
+        if (null === $data) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return $data;
+    }
+
+    public function updateShareData(string $email, string $listId, UpdateShareData $data): ShareData
+    {
+        $updated = $this->listRepository->updateShareData($this->requireUserId($email), $listId, $data);
+
+        if (null === $updated) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return $updated;
+    }
+
+    public function joinByLink(string $email, string $listId): ListData
+    {
+        $joined = $this->listRepository->joinByLink($this->requireUserId($email), $listId);
+
+        if (null === $joined) {
+            throw new ListException($this->translator->trans('list.link_access_denied'));
+        }
+
+        return $joined;
+    }
+
+    public function findPublicInfoByShortUrl(string $shortUrl): ListPublicInfoData
+    {
+        $info = $this->listRepository->findPublicInfoByShortUrl($shortUrl);
+
+        if (null === $info) {
+            throw new ListException($this->translator->trans('list.not_found'), 'url');
+        }
+
+        return $info;
     }
 
     public function createListItem(string $email, CreateListItemData $data): ListItemData

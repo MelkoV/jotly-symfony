@@ -123,6 +123,38 @@ nelmio_api_doc:
                             type: array
                             items:
                                 $ref: '#/components/schemas/ListItem'
+                DeleteTypesResponse:
+                    type: object
+                    properties:
+                        left:
+                            type: boolean
+                        delete:
+                            type: boolean
+                ShareResponse:
+                    type: object
+                    properties:
+                        short_url:
+                            type: string
+                        is_share_link:
+                            type: boolean
+                        can_edit:
+                            type: boolean
+                ListPublicInfoResponse:
+                    type: object
+                    properties:
+                        id:
+                            type: string
+                            format: uuid
+                        name:
+                            type: string
+                        description:
+                            type: string
+                            nullable: true
+                        owner_name:
+                            type: string
+                        owner_avatar:
+                            type: string
+                            nullable: true
                 PaginatedListsResponse:
                     type: object
                     properties:

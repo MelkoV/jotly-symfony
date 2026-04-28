@@ -6,16 +6,21 @@ namespace App\Repository\Doctrine;
 
 use App\Dto\List\CreateListData;
 use App\Dto\List\CreateListItemData;
+use App\Dto\List\DeleteTypesData;
 use App\Dto\List\DeleteListItemData;
+use App\Dto\List\ListPublicInfoData;
 use App\Dto\List\ListData;
 use App\Dto\List\ListFilterData;
 use App\Dto\List\ListItemData;
 use App\Dto\List\ListItemMutationData;
 use App\Dto\List\ListViewData;
 use App\Dto\List\PaginatedListsData;
+use App\Dto\List\ShareData;
 use App\Dto\List\UpdateListData;
+use App\Dto\List\UpdateShareData;
 use App\Entity\JotList;
 use App\Entity\ListItem;
+use App\Entity\ListUser;
 use App\Entity\User;
 use App\Enum\ListAccess;
 use App\Enum\ListFilterTemplate;
@@ -147,6 +152,131 @@ final class DoctrineListRepository extends ServiceEntityRepository implements Li
         $this->getEntityManager()->flush();
 
         return true;
+    }
+
+    public function getDeleteTypes(string $userId, string $listId): ?DeleteTypesData
+    {
+        $list = $this->findAccessibleList($userId, $listId);
+
+        if (!$list instanceof JotList) {
+            return null;
+        }
+
+        return new DeleteTypesData(
+            true,
+            $list->getOwner()->getId() === $userId,
+        );
+    }
+
+    public function leftUser(string $userId, string $listId): bool
+    {
+        $list = $this->findAccessibleList($userId, $listId);
+
+        if (!$list instanceof JotList) {
+            return false;
+        }
+
+        $membership = $this->findMembership($listId, $userId);
+        if (!$membership instanceof ListUser) {
+            return false;
+        }
+
+        $entityManager = $this->getEntityManager();
+        $entityManager->remove($membership);
+        $entityManager->flush();
+
+        return true;
+    }
+
+    public function getShareData(string $userId, string $listId): ?ShareData
+    {
+        $list = $this->findOwnedList($userId, $listId);
+
+        return $list instanceof JotList ? $this->mapShareData($list) : null;
+    }
+
+    public function updateShareData(string $userId, string $listId, UpdateShareData $data): ?ShareData
+    {
+        $list = $this->findOwnedList($userId, $listId);
+
+        if (!$list instanceof JotList) {
+            return null;
+        }
+
+        $access = ListAccess::Private->value;
+        if ($data->isShareLink) {
+            $access |= ListAccess::Link->value;
+        }
+        if ($data->canEdit) {
+            $access |= ListAccess::CanEdit->value;
+        }
+
+        $list
+            ->setAccess($access)
+            ->setUpdatedAt(new \DateTimeImmutable());
+
+        $entityManager = $this->getEntityManager();
+        $entityManager->persist($list);
+        $entityManager->flush();
+
+        return $this->mapShareData($list);
+    }
+
+    public function joinByLink(string $userId, string $listId): ?ListData
+    {
+        $list = $this->find($listId);
+
+        if (!$list instanceof JotList || null !== $list->getDeletedAt()) {
+            return null;
+        }
+
+        if (($list->getAccess() & ListAccess::Link->value) !== ListAccess::Link->value) {
+            return null;
+        }
+
+        $membership = $this->findMembership($listId, $userId);
+        if (!$membership instanceof ListUser) {
+            $now = new \DateTimeImmutable();
+            $membership = new ListUser();
+            $membership
+                ->setList($list)
+                ->setUser($this->getEntityManager()->getReference(User::class, $userId))
+                ->setCreatedAt($now)
+                ->setUpdatedAt($now);
+
+            $entityManager = $this->getEntityManager();
+            $entityManager->persist($membership);
+            $entityManager->flush();
+        }
+
+        $accessible = $this->findAccessibleList($userId, $listId);
+
+        return $accessible instanceof JotList ? $this->mapListData($accessible, $userId) : null;
+    }
+
+    public function findPublicInfoByShortUrl(string $shortUrl): ?ListPublicInfoData
+    {
+        /** @var JotList|null $list */
+        $list = $this->createQueryBuilder('list')
+            ->select('list, owner')
+            ->join('list.owner', 'owner')
+            ->andWhere('list.shortUrl = :shortUrl')
+            ->andWhere('list.deletedAt IS NULL')
+            ->setParameter('shortUrl', $shortUrl)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!$list instanceof JotList) {
+            return null;
+        }
+
+        return new ListPublicInfoData(
+            $list->getId(),
+            $list->getName(),
+            $list->getDescription(),
+            $list->getOwner()->getName(),
+            $list->getOwner()->getAvatar(),
+        );
     }
 
     public function createListItem(string $userId, CreateListItemData $data): ?ListItemData
@@ -399,6 +529,34 @@ final class DoctrineListRepository extends ServiceEntityRepository implements Li
         return $item;
     }
 
+    private function findOwnedList(string $userId, string $listId): ?JotList
+    {
+        /** @var JotList|null $list */
+        $list = $this->createQueryBuilder('list')
+            ->select('list, owner')
+            ->join('list.owner', 'owner')
+            ->andWhere('list.id = :id')
+            ->andWhere('list.deletedAt IS NULL')
+            ->andWhere('owner.id = :userId')
+            ->setParameter('id', $listId)
+            ->setParameter('userId', $userId)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $list;
+    }
+
+    private function findMembership(string $listId, string $userId): ?ListUser
+    {
+        /** @var ListUser|null $membership */
+        $membership = $this->getEntityManager()->getRepository(ListUser::class)->findOneBy([
+            'list' => $listId,
+            'user' => $userId,
+        ]);
+
+        return $membership;
+    }
+
     private function canEdit(JotList $list, string $userId): bool
     {
         if ($list->getOwner()->getId() === $userId) {
@@ -458,6 +616,17 @@ final class DoctrineListRepository extends ServiceEntityRepository implements Li
             $item->getUser()->getAvatar(),
             $hideCompletedUser ? null : $item->getCompletedUser()?->getName(),
             $hideCompletedUser ? null : $item->getCompletedUser()?->getAvatar(),
+        );
+    }
+
+    private function mapShareData(JotList $list): ShareData
+    {
+        $access = $list->getAccess();
+
+        return new ShareData(
+            $list->getShortUrl(),
+            ($access & ListAccess::Link->value) === ListAccess::Link->value,
+            ($access & ListAccess::CanEdit->value) === ListAccess::CanEdit->value,
         );
     }
 

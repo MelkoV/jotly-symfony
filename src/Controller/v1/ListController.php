@@ -10,6 +10,7 @@ use App\Dto\Request\V1\List\DeleteListItemRequest;
 use App\Dto\Request\V1\List\FilterListsRequest;
 use App\Dto\Request\V1\List\UpdateListRequest;
 use App\Dto\Request\V1\List\UpdateListItemRequest;
+use App\Dto\Request\V1\List\UpdateShareRequest;
 use App\Exception\ListException;
 use App\Service\ListService;
 use OpenApi\Attributes as OA;
@@ -209,6 +210,182 @@ final class ListController extends AbstractController
     {
         try {
             $result = $this->listService->delete($user->getUserIdentifier(), $id);
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/lists/delete-types/{id}', name: 'api_v1_lists_delete_types', methods: ['GET'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Get(
+        summary: 'Get available delete actions for a list',
+        security: [['Bearer' => []]],
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'Delete action options',
+                content: new OA\JsonContent(ref: '#/components/schemas/DeleteTypesResponse'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Access error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+        ],
+    )]
+    public function deleteTypes(#[CurrentUser] UserInterface $user, string $id): JsonResponse
+    {
+        try {
+            $result = $this->listService->getDeleteTypes($user->getUserIdentifier(), $id);
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/lists/left/{id}', name: 'api_v1_lists_left', methods: ['DELETE'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Delete(
+        summary: 'Leave a shared list',
+        security: [['Bearer' => []]],
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'List left successfully',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Access error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+        ],
+    )]
+    public function left(#[CurrentUser] UserInterface $user, string $id): JsonResponse
+    {
+        try {
+            $result = $this->listService->leftUser($user->getUserIdentifier(), $id);
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/lists/share/{id}', name: 'api_v1_lists_share', methods: ['GET'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Get(
+        summary: 'Get share settings for an owned list',
+        security: [['Bearer' => []]],
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'Current share settings',
+                content: new OA\JsonContent(ref: '#/components/schemas/ShareResponse'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Access error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+        ],
+    )]
+    public function share(#[CurrentUser] UserInterface $user, string $id): JsonResponse
+    {
+        try {
+            $result = $this->listService->getShareData($user->getUserIdentifier(), $id);
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/lists/share/{id}', name: 'api_v1_lists_share_update', methods: ['PUT'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Put(
+        summary: 'Update share settings for an owned list',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/UpdateShareRequest')),
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'Share settings updated successfully',
+                content: new OA\JsonContent(ref: '#/components/schemas/ShareResponse'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Validation or access error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+        ],
+    )]
+    public function updateShare(
+        #[CurrentUser] UserInterface $user,
+        string $id,
+        #[MapRequestPayload] UpdateShareRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->listService->updateShareData($user->getUserIdentifier(), $id, $request->toDto());
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/lists/join/{id}', name: 'api_v1_lists_join', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Post(
+        summary: 'Join a list by shared link',
+        security: [['Bearer' => []]],
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'List joined successfully',
+                content: new OA\JsonContent(ref: '#/components/schemas/ListSummary'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Link access error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+        ],
+    )]
+    public function join(#[CurrentUser] UserInterface $user, string $id): JsonResponse
+    {
+        try {
+            $result = $this->listService->joinByLink($user->getUserIdentifier(), $id);
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/lists/info/{url}', name: 'api_v1_lists_info', methods: ['GET'])]
+    #[OA\Get(
+        summary: 'Get public list info by short url',
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'Public list info',
+                content: new OA\JsonContent(ref: '#/components/schemas/ListPublicInfoResponse'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'List not found',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+        ],
+    )]
+    public function info(string $url): JsonResponse
+    {
+        try {
+            $result = $this->listService->findPublicInfoByShortUrl($url);
         } catch (ListException $e) {
             return $this->errorResponse($e);
         }
