@@ -9,3 +9,5 @@ security:
     refresh_token_is_invalid: 'Refresh token поврежден или устарел'
     refresh_token_owner_error: 'Refresh token ошибка валидации'
     current_password_is_incorrect: 'Текущий пароль указан неверно'
+list:
+    access_denied: 'У Вас нет доступа к этому списку'

@@ -21,6 +21,7 @@ services:
 
     App\Repository\UserRepository: '@App\Repository\Doctrine\DoctrineUserRepository'
     App\Repository\FeedbackRepository: '@App\Repository\Doctrine\DoctrineFeedbackRepository'
+    App\Repository\ListRepository: '@App\Repository\Doctrine\DoctrineListRepository'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
