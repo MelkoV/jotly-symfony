@@ -7,7 +7,9 @@ namespace App\Controller\v1;
 use App\Dto\Auth\RefreshTokenData;
 use App\Dto\Request\V1\Auth\SignInRequest;
 use App\Dto\Request\V1\Auth\SignUpRequest;
-use App\Exception\UserAuthException;
+use App\Dto\Request\V1\User\ChangePasswordRequest;
+use App\Dto\Request\V1\User\UpdateProfileRequest;
+use App\Exception\UserException;
 use App\Service\AuthService;
 use App\Service\UserService;
 use OpenApi\Attributes as OA;
@@ -44,7 +46,7 @@ final class UserController extends AbstractController
                     new OA\Property(property: 'email', type: 'string', format: 'email', example: 'anton@example.com'),
                     new OA\Property(property: 'password', type: 'string', format: 'password', example: 'secret123'),
                     new OA\Property(property: 'repeat_password', type: 'string', format: 'password', example: 'secret123'),
-                    new OA\Property(property: 'device', type: 'string', enum: ['web', 'android', 'ios'], example: 'web'),
+                    new OA\Property(property: 'device', type: 'string', example: 'web', enum: ['web', 'android', 'ios']),
                     new OA\Property(property: 'device_id', type: 'string', example: 'browser-123'),
                 ],
             ),
@@ -66,7 +68,7 @@ final class UserController extends AbstractController
     {
         try {
             return $this->toJsonResponse($this->authService->signUp($request->toDto()));
-        } catch (UserAuthException $e) {
+        } catch (UserException $e) {
             return $this->errorResponse($e->getMessage());
         }
     }
@@ -81,7 +83,7 @@ final class UserController extends AbstractController
                 properties: [
                     new OA\Property(property: 'email', type: 'string', format: 'email', example: 'anton@example.com'),
                     new OA\Property(property: 'password', type: 'string', format: 'password', example: 'secret123'),
-                    new OA\Property(property: 'device', type: 'string', enum: ['web', 'android', 'ios'], example: 'web'),
+                    new OA\Property(property: 'device', type: 'string', example: 'web', enum: ['web', 'android', 'ios']),
                     new OA\Property(property: 'device_id', type: 'string', example: 'browser-123'),
                 ],
             ),
@@ -103,7 +105,7 @@ final class UserController extends AbstractController
     {
         try {
             return $this->toJsonResponse($this->authService->signIn($request->toDto()));
-        } catch (UserAuthException $e) {
+        } catch (UserException $e) {
             return $this->errorResponse($e->getMessage());
         }
     }
@@ -133,6 +135,90 @@ final class UserController extends AbstractController
         return $this->json($profile->toArray());
     }
 
+    #[Route('/v1/user/profile', name: 'api_v1_user_update_profile', methods: ['PUT'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Put(
+        summary: 'Update current user profile',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Updated User'),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'User profile updated successfully',
+                content: new OA\JsonContent(ref: '#/components/schemas/UserProfile'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Validation error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+            new OA\Response(response: Response::HTTP_UNAUTHORIZED, description: 'Authentication required'),
+        ],
+    )]
+    public function updateProfile(
+        #[CurrentUser] UserInterface $user,
+        #[MapRequestPayload] UpdateProfileRequest $request,
+    ): JsonResponse {
+        $profile = $this->userService->updateProfile($user->getUserIdentifier(), $request->toDto());
+
+        if (null === $profile) {
+            return $this->json([], Response::HTTP_UNAUTHORIZED);
+        }
+
+        return $this->json($profile->toArray());
+    }
+
+    #[Route('/v1/user/change-password', name: 'api_v1_user_change_password', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Post(
+        summary: 'Change current user password',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['old_password', 'password', 'repeat_password'],
+                properties: [
+                    new OA\Property(property: 'old_password', type: 'string', format: 'password', example: 'secret123'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'new-secret123'),
+                    new OA\Property(property: 'repeat_password', type: 'string', format: 'password', example: 'new-secret123'),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'Password changed successfully',
+                content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Validation or authentication error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+            new OA\Response(response: Response::HTTP_UNAUTHORIZED, description: 'Authentication required'),
+        ],
+    )]
+    public function changePassword(
+        #[CurrentUser] UserInterface $user,
+        #[MapRequestPayload] ChangePasswordRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->userService->changePassword($user->getUserIdentifier(), $request->toDto());
+        } catch (UserException $e) {
+            return $this->errorResponse($e->getMessage(), $e->getField());
+        }
+
+        return $this->json($result->toArray());
+    }
+
     #[Route('/v1/user/refresh-token', name: 'api_v1_user_refresh_token', methods: ['POST'])]
     #[OA\Post(
         summary: 'Refresh access token using refresh token cookie',
@@ -147,9 +233,13 @@ final class UserController extends AbstractController
     )]
     public function refreshToken(Request $request): JsonResponse
     {
-        return $this->toJsonResponse(
-            $this->authService->refresh(new RefreshTokenData($request->cookies->get($this->refreshCookieName))),
-        );
+        try {
+            return $this->toJsonResponse(
+                $this->authService->refresh(new RefreshTokenData($request->cookies->get($this->refreshCookieName))),
+            );
+        } catch (UserException $e) {
+            return $this->errorResponse($e->getMessage(), $e->getField());
+        }
     }
 
     #[Route('/v1/user/logout', name: 'api_v1_user_logout', methods: ['POST'])]
@@ -185,7 +275,7 @@ final class UserController extends AbstractController
     {
         return $this->json([
             'message' => $error,
-            'errors' => [$field => [$error]]
+            'errors' => [$field => [$error]],
         ], Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

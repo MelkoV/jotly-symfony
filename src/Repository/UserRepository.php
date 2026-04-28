@@ -19,6 +19,8 @@ interface UserRepository
 
     public function findProfileByEmail(string $email): ?UserData;
 
+    public function updateNameByEmail(string $email, string $name): ?UserData;
+
     public function touchAccount(string $userId, UserDevice $device, string $deviceId, \DateTimeImmutable $loggedAt): void;
 
     public function upgradePasswordByEmail(string $email, string $newHashedPassword): void;

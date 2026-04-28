@@ -46,6 +46,12 @@ nelmio_api_doc:
                                 type: array
                                 items:
                                     type: string
+                SuccessResponse:
+                    type: object
+                    properties:
+                        success:
+                            type: boolean
+                            example: true
     areas:
         default:
             path_patterns:

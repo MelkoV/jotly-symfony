@@ -8,3 +8,4 @@ security:
     refresh_token_is_missing: 'Refresh token cookie не найдена'
     refresh_token_is_invalid: 'Refresh token поврежден или устарел'
     refresh_token_owner_error: 'Refresh token ошибка валидации'
+    current_password_is_incorrect: 'Текущий пароль указан неверно'

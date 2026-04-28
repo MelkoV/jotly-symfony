@@ -11,7 +11,7 @@ use App\Dto\Auth\RefreshTokenData;
 use App\Dto\Auth\SignInData;
 use App\Dto\Auth\SignUpData;
 use App\Enum\UserStatus;
-use App\Exception\UserAuthException;
+use App\Exception\UserException;
 use App\Repository\UserRepository;
 use Gesdinet\JWTRefreshTokenBundle\Model\RefreshTokenManagerInterface;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,7 +33,7 @@ final readonly class AuthService
     public function signUp(SignUpData $data): AuthResult
     {
         if ($this->userRepository->existsByEmail($data->email)) {
-            throw new UserAuthException($this->translator->trans('security.user_already_exists'));
+            throw new UserException($this->translator->trans('security.user_already_exists'));
         }
 
         $now = new \DateTimeImmutable();
@@ -69,11 +69,11 @@ final readonly class AuthService
         $authUser = $this->userRepository->findAuthUserByEmail($data->email);
 
         if (null === $authUser || !$this->passwordHasher->isPasswordValid($authUser, $data->password)) {
-            throw new UserAuthException($this->translator->trans('security.invalid_credentials'));
+            throw new UserException($this->translator->trans('security.invalid_credentials'));
         }
 
         if ($authUser->user->status !== UserStatus::Active) {
-            throw new UserAuthException($this->translator->trans('security.user_blocked'));
+            throw new UserException($this->translator->trans('security.user_blocked'));
         }
 
         $this->userRepository->touchAccount($authUser->user->id, $data->device, $data->deviceId, new \DateTimeImmutable());
@@ -88,20 +88,20 @@ final readonly class AuthService
     public function refresh(RefreshTokenData $data): AuthResult
     {
         if (null === $data->token || '' === $data->token) {
-            throw new UserAuthException($this->translator->trans('security.refresh_token_is_missing'));
+            throw new UserException($this->translator->trans('security.refresh_token_is_missing'));
         }
 
         $refreshToken = $this->refreshTokenManager->get($data->token);
 
         if (null === $refreshToken || !$refreshToken->isValid()) {
-            throw new UserAuthException($this->translator->trans('security.refresh_token_is_invalid'));
+            throw new UserException($this->translator->trans('security.refresh_token_is_invalid'));
         }
 
         $authUser = $this->userRepository->findAuthUserByEmail((string) $refreshToken->getUsername());
 
         if (null === $authUser || $authUser->user->status !== UserStatus::Active) {
             $this->refreshTokenManager->delete($refreshToken);
-            throw new UserAuthException($this->translator->trans('security.refresh_token_owner_error'));
+            throw new UserException($this->translator->trans('security.refresh_token_owner_error'));
         }
 
         $tokens = $this->authTokenService->issueTokens($authUser, $refreshToken);

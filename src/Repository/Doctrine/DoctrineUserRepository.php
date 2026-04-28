@@ -76,6 +76,24 @@ final class DoctrineUserRepository extends ServiceEntityRepository implements Us
         return $user instanceof User ? $this->mapUserData($user) : null;
     }
 
+    public function updateNameByEmail(string $email, string $name): ?UserData
+    {
+        $user = $this->findOneBy(['email' => $this->normalizeEmail($email)]);
+
+        if (!$user instanceof User) {
+            return null;
+        }
+
+        $user
+            ->setName(trim($name))
+            ->setUpdatedAt(new \DateTimeImmutable());
+
+        $this->getEntityManager()->persist($user);
+        $this->getEntityManager()->flush();
+
+        return $this->mapUserData($user);
+    }
+
     public function touchAccount(string $userId, UserDevice $device, string $deviceId, \DateTimeImmutable $loggedAt): void
     {
         $user = $this->find($userId);

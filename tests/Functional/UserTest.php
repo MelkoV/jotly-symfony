@@ -9,7 +9,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Response;
 
-final class UserAuthTest extends WebTestCase
+final class UserTest extends WebTestCase
 {
     public function testSignUpReturnsUserTokenAndRefreshCookie(): void
     {
@@ -105,6 +105,60 @@ final class UserAuthTest extends WebTestCase
         self::assertTrue($logoutCookie->isCleared());
     }
 
+    public function testUpdateProfileReturnsUpdatedUser(): void
+    {
+        [$client, $email, $accessToken] = $this->signUpAndSignIn('Profile Before');
+
+        $client->jsonRequest('PUT', '/api/v1/user/profile', [
+            'name' => 'Profile After',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$accessToken,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        $payload = $this->decodeJson($client->getResponse()->getContent());
+
+        self::assertSame($email, $payload['email'] ?? null);
+        self::assertSame('Profile After', $payload['name'] ?? null);
+        self::assertSame('active', $payload['status'] ?? null);
+    }
+
+    public function testChangePasswordReturnsSuccessAndAllowsSignInWithNewPassword(): void
+    {
+        [$client, $email, $accessToken] = $this->signUpAndSignIn('Password User');
+
+        $client->jsonRequest('POST', '/api/v1/user/change-password', [
+            'old_password' => 'secret123',
+            'password' => 'new-secret123',
+            'repeat_password' => 'new-secret123',
+        ], server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$accessToken,
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+        self::assertSame(['success' => true], $this->decodeJson($client->getResponse()->getContent()));
+
+        $client->jsonRequest('POST', '/api/v1/user/sign-in', [
+            'email' => $email,
+            'password' => 'secret123',
+            'device' => 'web',
+            'device_id' => 'phpunit-password',
+        ]);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+
+        $client->jsonRequest('POST', '/api/v1/user/sign-in', [
+            'email' => $email,
+            'password' => 'new-secret123',
+            'device' => 'web',
+            'device_id' => 'phpunit-password',
+        ]);
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $payload = $this->decodeJson($client->getResponse()->getContent());
+        self::assertSame($email, $payload['user']['email'] ?? null);
+        self::assertIsString($payload['token'] ?? null);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -133,5 +187,36 @@ final class UserAuthTest extends WebTestCase
     private function uniqueEmail(): string
     {
         return sprintf('phpunit+%s@example.com', bin2hex(random_bytes(6)));
+    }
+
+    /**
+     * @return array{0: KernelBrowser, 1: string, 2: string}
+     */
+    private function signUpAndSignIn(string $name): array
+    {
+        $client = static::createClient();
+        $email = $this->uniqueEmail();
+
+        $client->jsonRequest('POST', '/api/v1/user/sign-up', [
+            'email' => $email,
+            'password' => 'secret123',
+            'repeat_password' => 'secret123',
+            'name' => $name,
+            'device' => 'web',
+            'device_id' => 'phpunit-password',
+        ]);
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $client->jsonRequest('POST', '/api/v1/user/sign-in', [
+            'email' => $email,
+            'password' => 'secret123',
+            'device' => 'web',
+            'device_id' => 'phpunit-password',
+        ]);
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $payload = $this->decodeJson($client->getResponse()->getContent());
+
+        return [$client, $email, (string) ($payload['token'] ?? '')];
     }
 }
