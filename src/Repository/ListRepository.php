@@ -8,6 +8,7 @@ use App\Dto\List\CreateListData;
 use App\Dto\List\CreateListItemData;
 use App\Dto\List\DeleteTypesData;
 use App\Dto\List\DeleteListItemData;
+use App\Dto\List\DuplicateListData;
 use App\Dto\List\ListPublicInfoData;
 use App\Dto\List\ListFilterData;
 use App\Dto\List\ListData;
@@ -42,6 +43,10 @@ interface ListRepository
     public function joinByLink(string $userId, string $listId): ?ListData;
 
     public function findPublicInfoByShortUrl(string $shortUrl): ?ListPublicInfoData;
+
+    public function copy(string $userId, string $listId, DuplicateListData $data): ?ListPublicInfoData;
+
+    public function createFromTemplate(string $userId, string $listId, DuplicateListData $data): ?ListPublicInfoData;
 
     public function createListItem(string $userId, CreateListItemData $data): ?ListItemData;
 

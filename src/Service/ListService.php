@@ -9,6 +9,7 @@ use App\Dto\List\CreateListData;
 use App\Dto\List\CreateListItemData;
 use App\Dto\List\DeleteTypesData;
 use App\Dto\List\DeleteListItemData;
+use App\Dto\List\DuplicateListData;
 use App\Dto\List\ListPublicInfoData;
 use App\Dto\List\ListData;
 use App\Dto\List\ListFilterData;
@@ -140,6 +141,28 @@ final readonly class ListService
         }
 
         return $info;
+    }
+
+    public function copy(string $email, string $listId, DuplicateListData $data): ListPublicInfoData
+    {
+        $copy = $this->listRepository->copy($this->requireUserId($email), $listId, $data);
+
+        if (null === $copy) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return $copy;
+    }
+
+    public function createFromTemplate(string $email, string $listId, DuplicateListData $data): ListPublicInfoData
+    {
+        $copy = $this->listRepository->createFromTemplate($this->requireUserId($email), $listId, $data);
+
+        if (null === $copy) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return $copy;
     }
 
     public function createListItem(string $email, CreateListItemData $data): ListItemData

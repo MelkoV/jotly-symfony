@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller\v1;
 
 use App\Dto\Request\V1\List\CreateListRequest;
+use App\Dto\Request\V1\List\DuplicateListRequest;
 use App\Dto\Request\V1\List\CreateListItemRequest;
 use App\Dto\Request\V1\List\DeleteListItemRequest;
 use App\Dto\Request\V1\List\FilterListsRequest;
@@ -386,6 +387,88 @@ final class ListController extends AbstractController
     {
         try {
             $result = $this->listService->findPublicInfoByShortUrl($url);
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/lists/copy/{id}', name: 'api_v1_lists_copy', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Post(
+        summary: 'Copy a list',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'Copied list'),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'List copied successfully',
+                content: new OA\JsonContent(ref: '#/components/schemas/ListPublicInfoResponse'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Validation or access error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+        ],
+    )]
+    public function copy(
+        #[CurrentUser] UserInterface $user,
+        string $id,
+        #[MapRequestPayload] DuplicateListRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->listService->copy($user->getUserIdentifier(), $id, $request->toDto());
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/lists/create-from-template/{id}', name: 'api_v1_lists_create_from_template', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Post(
+        summary: 'Create a list from template',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['name'],
+                properties: [
+                    new OA\Property(property: 'name', type: 'string', example: 'New workspace'),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: Response::HTTP_OK,
+                description: 'List created from template successfully',
+                content: new OA\JsonContent(ref: '#/components/schemas/ListPublicInfoResponse'),
+            ),
+            new OA\Response(
+                response: Response::HTTP_UNPROCESSABLE_ENTITY,
+                description: 'Validation or access error',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse'),
+            ),
+        ],
+    )]
+    public function createFromTemplate(
+        #[CurrentUser] UserInterface $user,
+        string $id,
+        #[MapRequestPayload] DuplicateListRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->listService->createFromTemplate($user->getUserIdentifier(), $id, $request->toDto());
         } catch (ListException $e) {
             return $this->errorResponse($e);
         }

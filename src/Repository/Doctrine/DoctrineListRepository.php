@@ -8,6 +8,7 @@ use App\Dto\List\CreateListData;
 use App\Dto\List\CreateListItemData;
 use App\Dto\List\DeleteTypesData;
 use App\Dto\List\DeleteListItemData;
+use App\Dto\List\DuplicateListData;
 use App\Dto\List\ListPublicInfoData;
 use App\Dto\List\ListData;
 use App\Dto\List\ListFilterData;
@@ -277,6 +278,16 @@ final class DoctrineListRepository extends ServiceEntityRepository implements Li
             $list->getOwner()->getName(),
             $list->getOwner()->getAvatar(),
         );
+    }
+
+    public function copy(string $userId, string $listId, DuplicateListData $data): ?ListPublicInfoData
+    {
+        return $this->duplicateList($userId, $listId, $data->name, false);
+    }
+
+    public function createFromTemplate(string $userId, string $listId, DuplicateListData $data): ?ListPublicInfoData
+    {
+        return $this->duplicateList($userId, $listId, $data->name, true);
     }
 
     public function createListItem(string $userId, CreateListItemData $data): ?ListItemData
@@ -627,6 +638,71 @@ final class DoctrineListRepository extends ServiceEntityRepository implements Li
             $list->getShortUrl(),
             ($access & ListAccess::Link->value) === ListAccess::Link->value,
             ($access & ListAccess::CanEdit->value) === ListAccess::CanEdit->value,
+        );
+    }
+
+    private function duplicateList(string $userId, string $listId, string $name, bool $forceNonTemplate): ?ListPublicInfoData
+    {
+        $source = $this->findAccessibleList($userId, $listId);
+
+        if (!$source instanceof JotList) {
+            return null;
+        }
+
+        $now = new \DateTimeImmutable();
+        $newList = new JotList();
+        $newList
+            ->setId(Uuid::v7()->toRfc4122())
+            ->setName($name)
+            ->setDescription($source->getDescription())
+            ->setIsTemplate($forceNonTemplate ? false : $source->isTemplate())
+            ->setType($source->getType())
+            ->setTouchedAt($now)
+            ->setShortUrl($this->generateUniqueShortUrl())
+            ->setAccess(ListAccess::Private->value)
+            ->setOwner($this->getEntityManager()->getReference(User::class, $userId))
+            ->setCreatedAt($now)
+            ->setUpdatedAt($now);
+
+        $membership = new ListUser();
+        $membership
+            ->setList($newList)
+            ->setUser($this->getEntityManager()->getReference(User::class, $userId))
+            ->setCreatedAt($now)
+            ->setUpdatedAt($now);
+
+        $entityManager = $this->getEntityManager();
+        $entityManager->persist($newList);
+        $entityManager->persist($membership);
+
+        foreach ($source->getItems() as $sourceItem) {
+            $item = new ListItem();
+            $item
+                ->setId(Uuid::v7()->toRfc4122())
+                ->setName($sourceItem->getName())
+                ->setDescription($sourceItem->getDescription())
+                ->setVersion(1)
+                ->setIsCompleted(false)
+                ->setCompletedAt(null)
+                ->setCompletedUser(null)
+                ->setData($this->normalizeAttributes($sourceItem->getData()))
+                ->setList($newList)
+                ->setUser($this->getEntityManager()->getReference(User::class, $userId))
+                ->setProduct($sourceItem->getProduct())
+                ->setCreatedAt($now)
+                ->setUpdatedAt($now);
+
+            $entityManager->persist($item);
+        }
+
+        $entityManager->flush();
+
+        return new ListPublicInfoData(
+            $newList->getId(),
+            $newList->getName(),
+            $newList->getDescription(),
+            $newList->getOwner()->getName(),
+            $newList->getOwner()->getAvatar(),
         );
     }
 
