@@ -108,7 +108,7 @@ final class ListTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $payload = $this->decodeJson($client->getResponse()->getContent());
-        self::assertSame('У Вас нет доступа к этому спискуа', $payload['message'] ?? null);
+        self::assertSame('У Вас нет доступа к этому списку', $payload['message'] ?? null);
     }
 
     /**

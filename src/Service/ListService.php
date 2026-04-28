@@ -6,8 +6,12 @@ namespace App\Service;
 
 use App\Dto\Common\SuccessData;
 use App\Dto\List\CreateListData;
+use App\Dto\List\CreateListItemData;
+use App\Dto\List\DeleteListItemData;
 use App\Dto\List\ListData;
 use App\Dto\List\ListFilterData;
+use App\Dto\List\ListItemData;
+use App\Dto\List\ListItemMutationData;
 use App\Dto\List\ListViewData;
 use App\Dto\List\PaginatedListsData;
 use App\Dto\List\UpdateListData;
@@ -66,6 +70,61 @@ final readonly class ListService
         }
 
         return new SuccessData();
+    }
+
+    public function createListItem(string $email, CreateListItemData $data): ListItemData
+    {
+        $item = $this->listRepository->createListItem($this->requireUserId($email), $data);
+
+        if (null === $item) {
+            throw new ListException($this->translator->trans('list.access_denied'), 'list_id');
+        }
+
+        return $item;
+    }
+
+    public function updateListItem(string $email, string $itemId, ListItemMutationData $data): ListItemData
+    {
+        $item = $this->listRepository->updateListItem($this->requireUserId($email), $itemId, $data);
+
+        if (null === $item) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return $item;
+    }
+
+    public function completeListItem(string $email, string $itemId, ListItemMutationData $data): ListItemData
+    {
+        $item = $this->listRepository->completeListItem($this->requireUserId($email), $itemId, $data);
+
+        if (null === $item) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return $item;
+    }
+
+    public function uncompleteListItem(string $email, string $itemId, ListItemMutationData $data): ListItemData
+    {
+        $item = $this->listRepository->uncompleteListItem($this->requireUserId($email), $itemId, $data);
+
+        if (null === $item) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return $item;
+    }
+
+    public function deleteListItem(string $email, string $itemId, DeleteListItemData $data): SuccessData
+    {
+        $deleted = $this->listRepository->deleteListItem($this->requireUserId($email), $itemId, $data);
+
+        if (null === $deleted) {
+            throw new ListException($this->translator->trans('list.access_denied'));
+        }
+
+        return new SuccessData($deleted);
     }
 
     private function requireUserId(string $email): string

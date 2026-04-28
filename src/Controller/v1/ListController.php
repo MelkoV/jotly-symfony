@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Controller\v1;
 
 use App\Dto\Request\V1\List\CreateListRequest;
+use App\Dto\Request\V1\List\CreateListItemRequest;
+use App\Dto\Request\V1\List\DeleteListItemRequest;
 use App\Dto\Request\V1\List\FilterListsRequest;
 use App\Dto\Request\V1\List\UpdateListRequest;
+use App\Dto\Request\V1\List\UpdateListItemRequest;
 use App\Exception\ListException;
 use App\Service\ListService;
 use OpenApi\Attributes as OA;
@@ -206,6 +209,132 @@ final class ListController extends AbstractController
     {
         try {
             $result = $this->listService->delete($user->getUserIdentifier(), $id);
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/list-items', name: 'api_v1_list_items_create', methods: ['POST'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Post(
+        summary: 'Create a new list item',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/CreateListItemRequest')),
+        responses: [
+            new OA\Response(response: Response::HTTP_CREATED, description: 'List item created successfully', content: new OA\JsonContent(ref: '#/components/schemas/ListItem')),
+            new OA\Response(response: Response::HTTP_UNPROCESSABLE_ENTITY, description: 'Validation or access error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')),
+        ],
+    )]
+    public function createItem(
+        #[CurrentUser] UserInterface $user,
+        #[MapRequestPayload] CreateListItemRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->listService->createListItem($user->getUserIdentifier(), $request->toDto());
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray(), Response::HTTP_CREATED);
+    }
+
+    #[Route('/v1/list-items/{id}', name: 'api_v1_list_items_update', methods: ['PUT'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Put(
+        summary: 'Update a list item',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/UpdateListItemRequest')),
+        responses: [
+            new OA\Response(response: Response::HTTP_OK, description: 'List item updated successfully', content: new OA\JsonContent(ref: '#/components/schemas/ListItem')),
+            new OA\Response(response: Response::HTTP_UNPROCESSABLE_ENTITY, description: 'Validation or domain error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')),
+        ],
+    )]
+    public function updateItem(
+        #[CurrentUser] UserInterface $user,
+        string $id,
+        #[MapRequestPayload] UpdateListItemRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->listService->updateListItem($user->getUserIdentifier(), $id, $request->toDto());
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/list-items/{id}', name: 'api_v1_list_items_delete', methods: ['DELETE'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Delete(
+        summary: 'Delete a list item',
+        security: [['Bearer' => []]],
+        parameters: [
+            new OA\Parameter(name: 'version', in: 'query', required: true, schema: new OA\Schema(type: 'integer', minimum: 1)),
+        ],
+        responses: [
+            new OA\Response(response: Response::HTTP_OK, description: 'List item deleted successfully', content: new OA\JsonContent(ref: '#/components/schemas/SuccessResponse')),
+            new OA\Response(response: Response::HTTP_UNPROCESSABLE_ENTITY, description: 'Validation or domain error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')),
+        ],
+    )]
+    public function deleteItem(
+        #[CurrentUser] UserInterface $user,
+        string $id,
+        #[MapQueryString] DeleteListItemRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->listService->deleteListItem($user->getUserIdentifier(), $id, $request->toDto());
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/list-items/complete/{id}', name: 'api_v1_list_items_complete', methods: ['PUT'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Put(
+        summary: 'Complete a list item',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/UpdateListItemRequest')),
+        responses: [
+            new OA\Response(response: Response::HTTP_OK, description: 'List item completed successfully', content: new OA\JsonContent(ref: '#/components/schemas/ListItem')),
+            new OA\Response(response: Response::HTTP_UNPROCESSABLE_ENTITY, description: 'Validation or domain error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')),
+        ],
+    )]
+    public function completeItem(
+        #[CurrentUser] UserInterface $user,
+        string $id,
+        #[MapRequestPayload] UpdateListItemRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->listService->completeListItem($user->getUserIdentifier(), $id, $request->toDto());
+        } catch (ListException $e) {
+            return $this->errorResponse($e);
+        }
+
+        return $this->json($result->toArray());
+    }
+
+    #[Route('/v1/list-items/uncomplete/{id}', name: 'api_v1_list_items_uncomplete', methods: ['PUT'])]
+    #[IsGranted('IS_AUTHENTICATED_FULLY')]
+    #[OA\Put(
+        summary: 'Restore a completed list item',
+        security: [['Bearer' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/UpdateListItemRequest')),
+        responses: [
+            new OA\Response(response: Response::HTTP_OK, description: 'List item restored successfully', content: new OA\JsonContent(ref: '#/components/schemas/ListItem')),
+            new OA\Response(response: Response::HTTP_UNPROCESSABLE_ENTITY, description: 'Validation or domain error', content: new OA\JsonContent(ref: '#/components/schemas/ValidationErrorResponse')),
+        ],
+    )]
+    public function uncompleteItem(
+        #[CurrentUser] UserInterface $user,
+        string $id,
+        #[MapRequestPayload] UpdateListItemRequest $request,
+    ): JsonResponse {
+        try {
+            $result = $this->listService->uncompleteListItem($user->getUserIdentifier(), $id, $request->toDto());
         } catch (ListException $e) {
             return $this->errorResponse($e);
         }
