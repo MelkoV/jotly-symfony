@@ -17,11 +17,11 @@ security:
             jwt: ~
 
     access_control:
+        - { path: ^/api/doc(?:\.json)?$, roles: PUBLIC_ACCESS }
         - { path: ^/api/v1/user/sign-up$, roles: PUBLIC_ACCESS }
         - { path: ^/api/v1/user/sign-in$, roles: PUBLIC_ACCESS }
         - { path: ^/api/v1/user/refresh-token$, roles: PUBLIC_ACCESS }
         - { path: ^/api/v1/user/logout$, roles: PUBLIC_ACCESS }
-        - { path: ^/api/v1/test$, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:

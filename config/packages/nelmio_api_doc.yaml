@@ -1,0 +1,52 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: Jotly API
+            description: API documentation for the Jotly Symfony application.
+            version: 1.0.0
+        components:
+            securitySchemes:
+                Bearer:
+                    type: http
+                    scheme: bearer
+                    bearerFormat: JWT
+            schemas:
+                UserProfile:
+                    type: object
+                    properties:
+                        id:
+                            type: string
+                            format: uuid
+                        name:
+                            type: string
+                        email:
+                            type: string
+                            format: email
+                        status:
+                            type: string
+                            example: active
+                        avatar:
+                            type: string
+                            nullable: true
+                AuthResponse:
+                    type: object
+                    properties:
+                        user:
+                            $ref: '#/components/schemas/UserProfile'
+                        token:
+                            type: string
+                ValidationErrorResponse:
+                    type: object
+                    properties:
+                        message:
+                            type: string
+                        errors:
+                            type: object
+                            additionalProperties:
+                                type: array
+                                items:
+                                    type: string
+    areas:
+        default:
+            path_patterns:
+                - ^/api(?!/doc(?:\.json)?$)
